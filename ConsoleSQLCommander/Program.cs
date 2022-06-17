@@ -30,13 +30,15 @@ namespace ConsoleSQLCommander
             //Console.WriteLine(f.display());
             //sql.insertObject(t);
             //sql.testInsertObject(t);
-            List<TestData> f = new List<TestData>();
-            f.AddRange(sql.getItems(new TestData(), new List<string> { "Name", "ID", "Time"}, "ID", "1", 2));
+            //List<TestData> f = new List<TestData>();
+            //f.AddRange(sql.getItems(new TestData(), new List<string> { "Name", "ID", "Time"}, "ID", "2", 0));
+            //f.AddRange(sql.getLikeItems(new TestData(), new List<string> { "Name", "ID", "Time" }, "ID", "2", 0));
+            //foreach (TestData t in f)
+              //  Console.WriteLine(t.display());
 
+            // Console.WriteLine(f.display());
 
-           // Console.WriteLine(f.display());
-
-
+            sql.modifyObjectTable(new TestData());
 
 
             /*

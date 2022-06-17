@@ -11,6 +11,8 @@ namespace ConsoleSQLCommander
         public int ID { get; set; }
         public string Name { get; set; }
         public DateTime Time { get; set; }
+        public string add1 { get; set; }
+        public int add2 { get; set; }
 
         public TestData() { }
 

@@ -26,10 +26,11 @@ namespace ConsoleSQLCommander
         public bool update(string command);
         public bool insert(SqlCommand myCommand);
         public bool delete(string command);
-        public Object read(string command);
+        public SqlDataReader read(string command);
         public bool testConnection();
         public Object getItem<T>(T obj, List<string> whatFields, string where, string wherevalue);
         public List<T> getItems<T>(T obj, List<string> whatFields, string where, string wherevalue, int limit);
+        public List<T> getLikeItems<T>(T obj, List<string> whatFields, string where, string wherevalue, int limit);
         public SqlConnection getConnection();
     }
 }

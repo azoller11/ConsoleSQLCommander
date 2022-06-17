@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
@@ -14,6 +15,9 @@ namespace ConsoleSQLCommander
 
         SqlConnection data;
         string connectionString;
+
+        DateTime openTime;
+
         public SQLCommander(string connectionString)
         {
             this.data = databaseConnection(connectionString);
@@ -32,25 +36,90 @@ namespace ConsoleSQLCommander
 
         public bool modifyObjectTable(object obj)
         {
-            throw new NotImplementedException();
+            string command = "ALTER TABLE " + obj.GetType().Name + " ";
+            using (SqlConnection conn = getConnection())
+            {
+                string[] restrictions = new string[4] { null, null, obj.GetType().Name, null };
+                open();
+                var selectedRows = from info in conn.GetSchema("Columns", restrictions).AsEnumerable()
+                                   select new
+                                   {
+                                       ColumnName = info["COLUMN_NAME"],
+                                       DataType = info["DATA_TYPE"]
+                                   };
+                if (selectedRows.Count() > obj.GetType().GetProperties().Length) {
+                    //The SQL table is larger that the given object DROP
+                    for (int i = obj.GetType().GetProperties().Length; i < selectedRows.Count(); i++)
+                    {
+                        string getCN = selectedRows.ToArray()[i].ColumnName.ToString();
+                        command += "DROP COLUMN " + getCN;
+                        if (i != selectedRows.Count() - 1)
+                            command += ", ";
+                    }
+                    Console.WriteLine("The SQL table is larger that the given object DROP");
+                } else if (selectedRows.Count() < obj.GetType().GetProperties().Length) {
+                    //The SQL Table is smaller than the given object ADD
+                    Console.WriteLine("The SQL Table is smaller than the given object ADD");
+                    for (int i = selectedRows.Count(); i < obj.GetType().GetProperties().Length; i++)
+                    {
+                        string itemDT = findSQLField(obj.GetType().GetProperties()[i].PropertyType);
+                        string itemCN = obj.GetType().GetProperties()[i].Name.ToString();
+                        command += "ADD " + itemCN + " " + itemDT;
+                        if (i != obj.GetType().GetProperties().Length - 1)
+                            command += ", ";
+                    }
+                } else if (selectedRows.Count() == obj.GetType().GetProperties().Length) {
+                    //The SQL Table is the same size as the given object ALTER
+                    Console.WriteLine("The SQL Table is the same size as the given object ALTER");
+                    for (int i = 0; i < selectedRows.Count(); i++)
+                    {
+                        string getCN = selectedRows.ToArray()[i].ColumnName.ToString();
+                        string getDT = selectedRows.ToArray()[i].DataType.ToString();
+
+                        string itemDT = findSQLField(obj.GetType().GetProperties()[i].PropertyType);
+                        string itemCN = obj.GetType().GetProperties()[i].Name.ToString();
+
+                        if (getDT != itemDT) // The data types are not the same
+                        {
+                            command += "ALTER COLUMN " + getCN + " " + itemDT; //changing the column data type to the given items datatype
+                        } else if (getCN != itemCN) // The name of the column is not the same
+                        {
+                            command += "RENAME COLUMN " + getCN + " TO " + itemCN;
+                        }
+                        //Console.WriteLine("SQL: " + getCN + " : " + getDT + " ITEM: " + itemCN + " : " + itemDT);
+                    }
+                }
+                if (command.Equals("ALTER TABLE " + obj.GetType().Name + " "))
+                {
+                    Console.WriteLine("There where no edits to the table");
+                    close();
+                    return false;
+                }
+                close();
+            }
+            Console.WriteLine(command);
+
+            return false;
         }
 
         public string findSQLField(Type field)
         {
             //This converts the known system primative datatype into a valid SQL datatype
             string check = field.ToString();
-            if (!check.Equals("System.String") && !check.Equals("System.Int32") && !check.Equals("System.DateTime"))
+            switch(check)
             {
-                Console.WriteLine("Can only create tables with primative objects on field: " + check);
-                return null;
+                case "System.Int32":
+                    return "int";
+                case "System.String":
+                    return "text";
+                case "System.DateTime":
+                    return "datetime";
+                case "System.Boolean":
+                    return "bit";
+                default:
+                    Console.WriteLine("Can only create tables with primative objects on field: " + check);
+                    return "text";
             }
-            if (check.Equals("System.Int32"))
-                return "INT";
-            if (check.Equals("System.String"))
-                return "TEXT";
-            if (check.Equals("System.DateTime"))
-                return "DATETIME";
-            return field.ToString();
         }
 
         public System.Data.SqlDbType findSQLType(Type field)
@@ -83,36 +152,11 @@ namespace ConsoleSQLCommander
             return false;
         }
 
-        public List<T> getItems<T>(T obj, List<string> whatFields, string where, string wherevalue, int limit)
-        {
-            Type type = obj.GetType();
-            string amount = "Top ";
-            if (limit > 0)
-                amount += limit + " ";
-            else
-                amount = "* ";
-            string command = "SELECT " + amount;
-
-            for (int i = 0; i < whatFields.Count; i++)
-            {
-                command += whatFields[i];
-                if (i + 1 < whatFields.Count)
-                    command += ", ";
-                else
-                    command += " ";
-            }
-            command += "FROM " + type.Name + " WHERE " + where + " = '" + wherevalue + "'";
-             Console.WriteLine(command);
-
-
-
-            return new List<T>();
-        }
-
         
 
-       
-        
+
+
+
 
 
         //------------------Completed Methods----------------------
@@ -122,6 +166,7 @@ namespace ConsoleSQLCommander
             try
             {
                 data.Open();
+                openTime = DateTime.Now;
                 Console.WriteLine("Connection open");
             }
             catch (Exception e)
@@ -134,7 +179,7 @@ namespace ConsoleSQLCommander
             try
             {
                 data.Close();
-                Console.WriteLine("Connection closed");
+                Console.WriteLine("Connection closed: Total Connection Time: " + (DateTime.Now - openTime));
             }
             catch (Exception e)
             {
@@ -444,15 +489,14 @@ namespace ConsoleSQLCommander
             close();
             return obj;
         }
-        public Object read(string command)
+        public SqlDataReader read(string command)
         {
             SqlCommand sqlcommand = new SqlCommand(command, getConnection());
-            object returnReader = null;
+            SqlDataReader reader = null;
             try
             {
                 open();
-                SqlDataReader reader = sqlcommand.ExecuteReader();
-                returnReader = reader;
+                reader = sqlcommand.ExecuteReader();
 
             }
             catch (SqlException e)
@@ -460,7 +504,150 @@ namespace ConsoleSQLCommander
                 Console.WriteLine("Result: " + e.Message);
             }
             close();
-            return returnReader;
+            return reader;
         }
+        public List<T> getItems<T>(T obj, List<string> whatFields, string where, string wherevalue, int limit)
+        {
+            Type type = obj.GetType();
+            string amount = "Top ";
+            List<T> items = new List<T>();
+
+            if (limit > 0)
+                amount += limit + " ";
+            else
+                amount = " ";
+            string command = "SELECT " + amount;
+
+            for (int i = 0; i < whatFields.Count; i++)
+            {
+                command += whatFields[i];
+                if (i + 1 < whatFields.Count)
+                    command += ", ";
+                else
+                    command += " ";
+            }
+            command += "FROM " + type.Name + " WHERE " + where + " = '" + wherevalue + "'";
+            SqlCommand sqlcommand = new SqlCommand(command, getConnection());
+            Console.WriteLine(command);
+            try
+            {
+                open();
+                SqlDataReader reader = sqlcommand.ExecuteReader();
+
+                if (!reader.HasRows)
+                {
+                    close();
+                    Console.WriteLine("Result: Object not found in database");
+                    return new List<T>();
+                }
+
+                while (reader.Read())
+                {
+                    T mo = (T)Activator.CreateInstance(typeof(T));
+                    for (int i = 0; i < whatFields.Count; i++)
+                    {
+                        foreach (var prop in type.GetProperties())
+                        {
+                            string n1 = prop.Name.ToLower();
+                            string n2 = whatFields[i].ToLower();
+                            string qvalue = reader[whatFields[i]].ToString();
+                            if (n1 == n2)
+                            {
+                                string fieldType = Type.GetTypeCode(prop.PropertyType).ToString();
+                                string value = qvalue;
+
+                                // Console.WriteLine(Type.GetTypeCode(prop.PropertyType) + " : " + prop.Name + " : ");
+                                Object item = Convert.ChangeType(value, Type.GetTypeCode(prop.PropertyType));
+                                prop.SetValue(mo, item);
+                                // Console.WriteLine(item + " : " + item.GetType().Name);
+                            }
+
+                        }
+                    }
+                    items.Add(mo);
+                }
+
+            }
+            catch (SqlException e)
+            {
+                Console.WriteLine("Result: " + e.Message);
+            }
+            close();
+
+
+            return items;
+        }
+        public List<T> getLikeItems<T>(T obj, List<string> whatFields, string where, string wherevalue, int limit)
+        {
+            Type type = obj.GetType();
+            string amount = "Top ";
+            List<T> items = new List<T>();
+
+            if (limit > 0)
+                amount += limit + " ";
+            else
+                amount = " ";
+            string command = "SELECT " + amount;
+
+            for (int i = 0; i < whatFields.Count; i++)
+            {
+                command += whatFields[i];
+                if (i + 1 < whatFields.Count)
+                    command += ", ";
+                else
+                    command += " ";
+            }
+            command += "FROM " + type.Name + " WHERE " + where + " LIKE '%" + wherevalue + "%'";
+            SqlCommand sqlcommand = new SqlCommand(command, getConnection());
+            Console.WriteLine(command);
+            try
+            {
+                open();
+                SqlDataReader reader = sqlcommand.ExecuteReader();
+
+                if (!reader.HasRows)
+                {
+                    close();
+                    Console.WriteLine("Result: Object not found in database");
+                    return new List<T>();
+                }
+
+                while (reader.Read())
+                {
+                    T mo = (T)Activator.CreateInstance(typeof(T));
+                    for (int i = 0; i < whatFields.Count; i++)
+                    {
+                        foreach (var prop in type.GetProperties())
+                        {
+                            string n1 = prop.Name.ToLower();
+                            string n2 = whatFields[i].ToLower();
+                            string qvalue = reader[whatFields[i]].ToString();
+                            if (n1 == n2)
+                            {
+                                string fieldType = Type.GetTypeCode(prop.PropertyType).ToString();
+                                string value = qvalue;
+
+                                // Console.WriteLine(Type.GetTypeCode(prop.PropertyType) + " : " + prop.Name + " : ");
+                                Object item = Convert.ChangeType(value, Type.GetTypeCode(prop.PropertyType));
+                                prop.SetValue(mo, item);
+                                // Console.WriteLine(item + " : " + item.GetType().Name);
+                            }
+
+                        }
+                    }
+                    items.Add(mo);
+                }
+
+            }
+            catch (SqlException e)
+            {
+                Console.WriteLine("Result: " + e.Message);
+            }
+            close();
+
+
+            return items;
+        }
+
     }
 }
