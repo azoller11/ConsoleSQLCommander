@@ -9,18 +9,18 @@ namespace ConsoleSQLCommander
 {
     public interface ISQLCommander
     {
-        public bool updateObject(Object obj, List<string> whatFields, List<string> newValues);
-        public bool updateObject(Object obj, List<Object> whatFields, List<string> newValues);
-        public bool deleteObject(Object obj, Type field, string value);
-        public bool deleteObject(Object obj, string field, string value);
-        public bool insertObject(Object obj);
-        public bool createObjectTable(Type type);
-        public bool modifyObjectTable(Object obj);
-        public bool deleteObjectTable(Object obj);
-        public bool checkObjForID(Type type);
+        public bool updateObject<T>(T obj, List<string> whatFields, List<string> newValues);
+        public bool updateObject<T>(T obj, List<Object> whatFields, List<string> newValues);
+        public bool deleteObject<T>(T obj, Type field, string value);
+        public bool deleteObject<T>(T obj, string field, string value);
+        public bool insertObject<T>(T obj);
+        public bool createObjectTable<T>(T type);
+        public bool modifyObjectTable<T>(T obj);
+        public bool deleteObjectTable<T>(T obj);
+        public bool checkObjForID<T>(T type);
         public SqlConnection databaseConnection(string connectionString);
-        public string findSQLField(Type field);
-        public System.Data.SqlDbType findSQLType(Type field);
+        public string findSQLField<T>(T field);
+        public System.Data.SqlDbType findSQLType<T>(T field);
         public void open();
         public void close();
         public bool insert(string command);
@@ -31,9 +31,10 @@ namespace ConsoleSQLCommander
         public Object getItem<T>(T obj, List<string> whatFields, string where, string wherevalue);
         public List<T> getItems<T>(T obj, List<string> whatFields, string where, string wherevalue, int limit);
         public List<T> getLikeItems<T>(T obj, List<string> whatFields, string where, string wherevalue, int limit);
-        public bool clearItems(Object obj);
+        public bool clearItems<T>(T obj);
         public SqlConnection getConnection();
         public void log(string item);
         public string getLog();
+        public string generateConnectionString(string ServerName, string Username, string Password, string DatabaseName, bool encrypt)
     }
 }

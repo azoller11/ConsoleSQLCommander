@@ -11,7 +11,7 @@ namespace ConsoleSQLCommander
     {
         public void connect(string Server, string Username, string Password, string Database)
         {
-            connect(new SqlConnection(generateConnectionString(Server, Username, Password, Database)));
+            connect(new SqlConnection(generateConnectionString(Server, Username, Password, Database, true)));
         }
 
         public void connect(SqlConnection cnn)
@@ -32,13 +32,14 @@ namespace ConsoleSQLCommander
 
 
 
-        public static string generateConnectionString(string ServerName, string Username, string Password, string DatabaseName)
+        public static string generateConnectionString(string ServerName, string Username, string Password, string DatabaseName, bool encrypt)
         {
             SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder();
             builder.DataSource = ServerName;
             builder.UserID = Username;
             builder.Password = Password;
             builder.InitialCatalog = DatabaseName;
+            builder.Encrypt = encrypt;
 
             Console.WriteLine(builder.ConnectionString);
 

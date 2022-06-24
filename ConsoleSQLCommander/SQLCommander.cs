@@ -11,8 +11,7 @@ namespace ConsoleSQLCommander
 {
     public class SQLCommander : ISQLCommander
     {
-
-
+        
         SqlConnection data;
         string connectionString;
         string logString;
@@ -27,11 +26,10 @@ namespace ConsoleSQLCommander
             this.logString = "";
             this.logs = new List<string>();
         }
-        public bool clearItems(Object obj)
+        public bool clearItems<T>(T obj)
         {
             return update("DELETE FROM " + obj.GetType().Name);
         }
-
         public void log(string item) {
             //logString += System.Environment.NewLine + " [" +DateTime.Now + "] " + item;
             logs.Add(" [" + DateTime.Now + "] " + item);
@@ -43,8 +41,7 @@ namespace ConsoleSQLCommander
             }
             return logString;
         }
-
-        public bool deleteObject(Object obj, Type field, string value)
+        public bool deleteObject<T>(T obj, Type field, string value)
         {
             string fieldConvert = "CONVERT(" + "TEXT" + ", " + "Name" +")";
             string command = "DELETE FROM " + obj.GetType().Name + " WHERE " + fieldConvert + " = '" + value + "'";
@@ -52,8 +49,7 @@ namespace ConsoleSQLCommander
             log(command);
             return update(command);
         }
-
-        public bool deleteObject(Object obj, string field, string value)
+        public bool deleteObject<T>(T obj, string field, string value)
         {
             SqlCommand sqlCommand = new SqlCommand();
             sqlCommand.Connection = data;
@@ -86,14 +82,11 @@ namespace ConsoleSQLCommander
             }
             return (result == 1);
         }
-
-
-        public bool deleteObjectTable(object obj)
+        public bool deleteObjectTable<T>(T obj)
         {
             return update("DROP TABLE " + obj.GetType().Name);
         }
-
-        public bool modifyObjectTable(object obj)
+        public bool modifyObjectTable<T>(T obj)
         {
             int results = 0;
             string command = "ALTER TABLE " + obj.GetType().Name + " ";
@@ -172,8 +165,7 @@ namespace ConsoleSQLCommander
             
             return results == 1;
         }
-
-        public string findSQLField(Type field)
+        public string findSQLField<T>(T field)
         {
             //This converts the known system primative datatype into a valid SQL datatype
             string check = field.ToString();
@@ -193,10 +185,9 @@ namespace ConsoleSQLCommander
                     return "text";
             }
         }
-
-        public System.Data.SqlDbType findSQLType(Type field)
+        public System.Data.SqlDbType findSQLType<T>(T field)
         {
-            switch (Type.GetTypeCode(field))
+            switch (Type.GetTypeCode(field.GetType()))
             {
                 case TypeCode.String:
                     return System.Data.SqlDbType.Text;
@@ -212,9 +203,6 @@ namespace ConsoleSQLCommander
                     return System.Data.SqlDbType.Text;
             }
         }
-
-
-
         //------------------Completed Methods----------------------
         public void open()
         {
@@ -284,7 +272,7 @@ namespace ConsoleSQLCommander
             close();
             return results == 1;
         }
-        public bool insertObject(object obj)
+        public bool insertObject<T>(T obj)
         {
             SqlCommand sqlCommand = new SqlCommand();
             sqlCommand.Connection = data;
@@ -369,20 +357,21 @@ namespace ConsoleSQLCommander
             }
         }
         //This needs work, if there is a field skipped (due to it not being supported, a comma is still left behind)
-        public bool createObjectTable(Type type)
+        public bool createObjectTable<T>(T type)
         {
             //To creat a table, the object must have an ID;
             //SUGGESTION: If it does not, maybe we can modify the class to have an ID?
 
             //Check if the table has an ID
+
             if (!checkObjForID(type))
             {
                 //Console.WriteLine("Object must contain an ID field to be inserted.");
                 log("Object must contain an ID field to be inserted.");
                 return false;
             }
-            string command = "CREATE TABLE " + type.Name + " (";
-            var props = type.GetProperties();
+            string command = "CREATE TABLE " + type.GetType().Name + " (";
+            var props = type.GetType().GetProperties();
             int iteration = 0;
             foreach (var p in props)
             {
@@ -429,9 +418,9 @@ namespace ConsoleSQLCommander
         {
             return new SqlConnection(connectionString);
         }
-        public bool checkObjForID(Type type)
+        public bool checkObjForID<T>(T type)
         {
-            var props = type.GetProperties();
+            var props = type.GetType().GetProperties();
             foreach (var p in props)
             {
                 if (p.Name.ToLower().Equals("id"))
@@ -459,7 +448,7 @@ namespace ConsoleSQLCommander
             close();
             return results == 1;
         }
-        public bool updateObject(object obj, List<Object> whatFields, List<string> newValues)
+        public bool updateObject<T>(T obj, List<Object> whatFields, List<string> newValues)
         {
             List<string> swhat = new List<string>();
             for (int i = 0; i < whatFields.Count; i++)
@@ -470,7 +459,7 @@ namespace ConsoleSQLCommander
             return updateObject(obj, swhat, newValues);
 
         }
-        public bool updateObject(object obj, List<string> whatFields, List<string> newValues)
+        public bool updateObject<T>(T obj, List<string> whatFields, List<string> newValues)
         {
             int ID = 0;
             //Start Developing the SQL String:
@@ -742,6 +731,18 @@ namespace ConsoleSQLCommander
 
             return items;
         }
+        public string generateConnectionString(string ServerName, string Username, string Password, string DatabaseName, bool encrypt)
+        {
+            SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder();
+            builder.DataSource = ServerName;
+            builder.UserID = Username;
+            builder.Password = Password;
+            builder.InitialCatalog = DatabaseName;
+            builder.Encrypt = encrypt;
 
+            Console.WriteLine(builder.ConnectionString);
+
+            return builder.ConnectionString;
+        }
     }
 }
