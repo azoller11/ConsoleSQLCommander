@@ -11,7 +11,8 @@ namespace ConsoleSQLCommander
     {
         public bool updateObject(Object obj, List<string> whatFields, List<string> newValues);
         public bool updateObject(Object obj, List<Object> whatFields, List<string> newValues);
-        public bool deleteObject(Object obj);
+        public bool deleteObject(Object obj, Type field, string value);
+        public bool deleteObject(Object obj, string field, string value);
         public bool insertObject(Object obj);
         public bool createObjectTable(Type type);
         public bool modifyObjectTable(Object obj);
@@ -25,12 +26,14 @@ namespace ConsoleSQLCommander
         public bool insert(string command);
         public bool update(string command);
         public bool insert(SqlCommand myCommand);
-        public bool delete(string command);
         public SqlDataReader read(string command);
         public bool testConnection();
         public Object getItem<T>(T obj, List<string> whatFields, string where, string wherevalue);
         public List<T> getItems<T>(T obj, List<string> whatFields, string where, string wherevalue, int limit);
         public List<T> getLikeItems<T>(T obj, List<string> whatFields, string where, string wherevalue, int limit);
+        public bool clearItems(Object obj);
         public SqlConnection getConnection();
+        public void log(string item);
+        public string getLog();
     }
 }

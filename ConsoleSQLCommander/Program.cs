@@ -30,23 +30,34 @@ namespace ConsoleSQLCommander
             //Console.WriteLine(f.display());
             //sql.insertObject(t);
             //sql.testInsertObject(t);
-            //List<TestData> f = new List<TestData>();
+
+
+            //sql.modifyObjectTable(new TestData());
+
+            //sql.deleteObject(new TestData() { Name = "Hello"}, "Name", "Item4");
+
+            sql.clearItems(new TestData());
+
+            for (int i = 0; i < 10; i++)
+            {
+                TestData data = new TestData("Item" + i + DateTime.Now.Ticks, DateTime.Now);
+                sql.insertObject(data);
+            }
+
+
+            List<TestData> f = new List<TestData>();
             //f.AddRange(sql.getItems(new TestData(), new List<string> { "Name", "ID", "Time"}, "ID", "2", 0));
-            //f.AddRange(sql.getLikeItems(new TestData(), new List<string> { "Name", "ID", "Time" }, "ID", "2", 0));
+            //f.AddRange(sql.getLikeItems(new TestData(), new List<string> { "Name", "ID", "Time" }, "Time", ""+DateTime.Today.ToShortDateString(), 0));
             //foreach (TestData t in f)
-              //  Console.WriteLine(t.display());
+               // Console.WriteLine(t.display());
 
             // Console.WriteLine(f.display());
 
-            sql.modifyObjectTable(new TestData());
+            //sql.modifyObjectTable(new TestData());
 
 
             /*
-            for (int i = 0; i < 10; i ++)
-            {
-                TestData data = new TestData("Item" + i, DateTime.Now);
-                sql.insertObject(data);
-            }
+            
             */
 
         }

@@ -15,6 +15,8 @@ namespace ConsoleSQLCommander
 
         SqlConnection data;
         string connectionString;
+        string logString;
+        List<string> logs;
 
         DateTime openTime;
 
@@ -22,20 +24,78 @@ namespace ConsoleSQLCommander
         {
             this.data = databaseConnection(connectionString);
             this.connectionString = connectionString;
+            this.logString = "";
+            this.logs = new List<string>();
+        }
+        public bool clearItems(Object obj)
+        {
+            return update("DELETE FROM " + obj.GetType().Name);
         }
 
-        public bool deleteObject(object obj)
-        {
-            throw new NotImplementedException();
+        public void log(string item) {
+            //logString += System.Environment.NewLine + " [" +DateTime.Now + "] " + item;
+            logs.Add(" [" + DateTime.Now + "] " + item);
         }
+        public string getLog() {
+            foreach(string s in logs)
+            {
+                logString += System.Environment.NewLine + s;
+            }
+            return logString;
+        }
+
+        public bool deleteObject(Object obj, Type field, string value)
+        {
+            string fieldConvert = "CONVERT(" + "TEXT" + ", " + "Name" +")";
+            string command = "DELETE FROM " + obj.GetType().Name + " WHERE " + fieldConvert + " = '" + value + "'";
+            //Console.WriteLine(command);
+            log(command);
+            return update(command);
+        }
+
+        public bool deleteObject(Object obj, string field, string value)
+        {
+            SqlCommand sqlCommand = new SqlCommand();
+            sqlCommand.Connection = data;
+            sqlCommand.CommandType = System.Data.CommandType.Text;
+
+
+            string fieldConvert = "CONVERT(" + "VARCHAR" + ", " + field + ")";
+            string command = "DELETE FROM " + obj.GetType().Name + " WHERE " + fieldConvert + " = @" + field;
+            sqlCommand.Parameters.AddWithValue("@"+ field, value);
+
+            log(command);
+            //Console.WriteLine(command);
+
+            sqlCommand.CommandText = command;
+            int result = 0;
+            try
+            {
+                open();
+                result = sqlCommand.ExecuteNonQuery();
+                //Console.WriteLine("Result: " + result);
+            }
+            catch (Exception e)
+            {
+                //Console.WriteLine("Result: " + e);
+                log("Result: " + e);
+            }
+            finally
+            {
+                close();
+            }
+            return (result == 1);
+        }
+
 
         public bool deleteObjectTable(object obj)
         {
-            throw new NotImplementedException();
+            return update("DROP TABLE " + obj.GetType().Name);
         }
 
         public bool modifyObjectTable(object obj)
         {
+            int results = 0;
             string command = "ALTER TABLE " + obj.GetType().Name + " ";
             using (SqlConnection conn = getConnection())
             {
@@ -49,28 +109,34 @@ namespace ConsoleSQLCommander
                                    };
                 if (selectedRows.Count() > obj.GetType().GetProperties().Length) {
                     //The SQL table is larger that the given object DROP
+                    command += "DROP COLUMN ";
                     for (int i = obj.GetType().GetProperties().Length; i < selectedRows.Count(); i++)
                     {
                         string getCN = selectedRows.ToArray()[i].ColumnName.ToString();
-                        command += "DROP COLUMN " + getCN;
+                        command += "" + getCN + "";
                         if (i != selectedRows.Count() - 1)
                             command += ", ";
+                        else
+                            command += ";";
                     }
-                    Console.WriteLine("The SQL table is larger that the given object DROP");
+                    //Console.WriteLine("The SQL table is larger that the given object DROP");
                 } else if (selectedRows.Count() < obj.GetType().GetProperties().Length) {
                     //The SQL Table is smaller than the given object ADD
-                    Console.WriteLine("The SQL Table is smaller than the given object ADD");
+                    command += "ADD";
+                    //Console.WriteLine("The SQL Table is smaller than the given object ADD");
                     for (int i = selectedRows.Count(); i < obj.GetType().GetProperties().Length; i++)
                     {
                         string itemDT = findSQLField(obj.GetType().GetProperties()[i].PropertyType);
                         string itemCN = obj.GetType().GetProperties()[i].Name.ToString();
-                        command += "ADD " + itemCN + " " + itemDT;
+                        command += " " + itemCN + " [" + itemDT + "]";
                         if (i != obj.GetType().GetProperties().Length - 1)
                             command += ", ";
+                        else
+                            command += ";";
                     }
                 } else if (selectedRows.Count() == obj.GetType().GetProperties().Length) {
                     //The SQL Table is the same size as the given object ALTER
-                    Console.WriteLine("The SQL Table is the same size as the given object ALTER");
+                    //Console.WriteLine("The SQL Table is the same size as the given object ALTER");
                     for (int i = 0; i < selectedRows.Count(); i++)
                     {
                         string getCN = selectedRows.ToArray()[i].ColumnName.ToString();
@@ -91,15 +157,20 @@ namespace ConsoleSQLCommander
                 }
                 if (command.Equals("ALTER TABLE " + obj.GetType().Name + " "))
                 {
-                    Console.WriteLine("There where no edits to the table");
+                    //Console.WriteLine("There where no edits to the table");
+                    log("There where no edits to the table");
                     close();
                     return false;
                 }
+
+                //Console.WriteLine(command);
+                log(command);
+                SqlCommand myCommand = new SqlCommand(command, data);
+                results = myCommand.ExecuteNonQuery();
                 close();
             }
-            Console.WriteLine(command);
-
-            return false;
+            
+            return results == 1;
         }
 
         public string findSQLField(Type field)
@@ -117,7 +188,8 @@ namespace ConsoleSQLCommander
                 case "System.Boolean":
                     return "bit";
                 default:
-                    Console.WriteLine("Can only create tables with primative objects on field: " + check);
+                    //Console.WriteLine("Can only create tables with primative objects on field: " + check);
+                    log("Can only create tables with primative objects on field: " + check);
                     return "text";
             }
         }
@@ -141,37 +213,24 @@ namespace ConsoleSQLCommander
             }
         }
 
-        public bool delete(string command)
-        {
-            open();
-
-            //Preform delete command
-
-            close();
-
-            return false;
-        }
-
-        
-
-
-
-
 
 
         //------------------Completed Methods----------------------
         public void open()
         {
-            Console.WriteLine("Connecting..");
+            //Console.WriteLine("Connecting..");
+            log("Connecting..");
             try
             {
                 data.Open();
                 openTime = DateTime.Now;
-                Console.WriteLine("Connection open");
+                log("Connection open");
+                //Console.WriteLine("Connection open");
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error connecting to Database: " + e);
+                log("Error connecting to Database: " + e);
+                //Console.WriteLine("Error connecting to Database: " + e);
             }
         }
         public void close()
@@ -179,11 +238,14 @@ namespace ConsoleSQLCommander
             try
             {
                 data.Close();
-                Console.WriteLine("Connection closed: Total Connection Time: " + (DateTime.Now - openTime));
+                log("Connection closed: Total Connection Time: " + (DateTime.Now - openTime));
+                //Console.WriteLine("Connection closed: Total Connection Time: " + (DateTime.Now - openTime));
+                //Console.WriteLine(getLog());
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error closing the Database: " + e);
+                log("Error closing the Database: " + e);
+                //Console.WriteLine("Error closing the Database: " + e);
             }
         }
         public bool insert(string command)
@@ -191,7 +253,8 @@ namespace ConsoleSQLCommander
             open();
             //Preform insert command
             SqlCommand myCommand = new SqlCommand(command, data);
-            Console.WriteLine("Inserting Command: " + command);
+            //Console.WriteLine("Inserting Command: " + command);
+            log("Inserting Command: " + command);
             int results = 0;
             try
             {
@@ -199,7 +262,8 @@ namespace ConsoleSQLCommander
             }
             catch (Exception e)
             {
-                Console.WriteLine("Failed inserting object with error: " + e);
+                //Console.WriteLine("Failed inserting object with error: " + e);
+                log("Failed inserting object with error: " + e);
             }
             close();
             return results == 1;
@@ -214,7 +278,8 @@ namespace ConsoleSQLCommander
             }
             catch (Exception e)
             {
-                Console.WriteLine("Failed inserting object with error: " + e);
+                log("Failed inserting object with error: " + e);
+                //Console.WriteLine("Failed inserting object with error: " + e);
             }
             close();
             return results == 1;
@@ -236,7 +301,17 @@ namespace ConsoleSQLCommander
                     values += "@" + p.Name;
                     string name = "@" + p.Name;
 
-                    sqlCommand.Parameters.AddWithValue(name, p.GetValue(obj).ToString());
+                    try
+                    {
+                        sqlCommand.Parameters.AddWithValue(name, p.GetValue(obj).ToString());
+                    } catch (System.NullReferenceException e)
+                    {
+                        log("Result: " + e.Message);
+                        log("Possible Error: Make sure the Object matches the Table in the SQL Database");
+                        //Console.WriteLine("Result: " + e.Message);
+                        //Console.WriteLine("Possible Error: Make sure the Object matches the Table in the SQL Database");
+                    }
+                    
 
                    // Console.WriteLine(name + ": " + p.GetValue(obj).ToString());
                     iteration++;
@@ -256,6 +331,7 @@ namespace ConsoleSQLCommander
                 
             }
             //Console.WriteLine(command);
+            log(command);
             sqlCommand.CommandText = command;
             int result = 0;
             try
@@ -266,7 +342,8 @@ namespace ConsoleSQLCommander
             }
             catch (Exception e)
             {
-                Console.WriteLine("Result: " + e);
+                log("Result: " + e);
+                //Console.WriteLine("Result: " + e);
             }
             finally
             {
@@ -279,13 +356,15 @@ namespace ConsoleSQLCommander
             try
             {
                 open();
-                Console.WriteLine("Test successfull");
+                //Console.WriteLine("Test successfull");
+                log("Test successfull");
                 close();
                 return true;
             }
             catch (Exception E)
             {
-                Console.WriteLine("Connection failed, with exception" + E.Message);
+                //Console.WriteLine("Connection failed, with exception" + E.Message);
+                log("Connection failed, with exception" + E.Message);
                 return false;
             }
         }
@@ -298,7 +377,8 @@ namespace ConsoleSQLCommander
             //Check if the table has an ID
             if (!checkObjForID(type))
             {
-                Console.WriteLine("Object must contain an ID field to be inserted.");
+                //Console.WriteLine("Object must contain an ID field to be inserted.");
+                log("Object must contain an ID field to be inserted.");
                 return false;
             }
             string command = "CREATE TABLE " + type.Name + " (";
@@ -336,11 +416,13 @@ namespace ConsoleSQLCommander
             */
             if (!command.Contains(","))
             {
-                Console.WriteLine("The table does not have any insertable values.");
+                //Console.WriteLine("The table does not have any insertable values.");
+                log("The table does not have any insertable values.");
                 return false;
             }
 
-            Console.WriteLine(command);
+            //Console.WriteLine(command);
+            log(command);
             return insert(command);
         }
         public SqlConnection databaseConnection(string connectionString)
@@ -368,9 +450,10 @@ namespace ConsoleSQLCommander
             {
                 results = myCommand.ExecuteNonQuery();
             }
-            catch
+            catch (System.Data.SqlClient.SqlException e)
             {
-                Console.WriteLine("Failed updating object");
+                //Console.WriteLine("Failed updating object. Result: " + e);
+                log("Failed updating object. Result: " + e);
             }
 
             close();
@@ -400,7 +483,8 @@ namespace ConsoleSQLCommander
                 {
                     if (whatFields[i].Equals("ID"))
                     {
-                        Console.WriteLine("Cannot update ID of Object");
+                        //Console.WriteLine("Cannot update ID of Object");
+                        log("Cannot update ID of Object");
                     }
                     else
                     {
@@ -420,8 +504,9 @@ namespace ConsoleSQLCommander
             }
             SQLCommand += " WHERE ID = " + ID;
 
-            Console.WriteLine(SQLCommand);
-            return false;
+            //Console.WriteLine(SQLCommand);
+            log(SQLCommand);
+            return update(SQLCommand);
         }
         public SqlConnection getConnection()
         {
@@ -453,7 +538,8 @@ namespace ConsoleSQLCommander
                 if (!reader.HasRows)
                 {
                     close();
-                    Console.WriteLine("Result: Object not found in database");
+                    //Console.WriteLine("Result: Object not found in database");
+                    log("Result: Object not found in database");
                     return obj;
                 }
 
@@ -484,7 +570,8 @@ namespace ConsoleSQLCommander
             }
             catch (SqlException e)
             {
-                Console.WriteLine("Result: " + e.Message);
+                ///Console.WriteLine("Result: " + e.Message);
+                log("Result: " + e.Message);
             }
             close();
             return obj;
@@ -501,7 +588,8 @@ namespace ConsoleSQLCommander
             }
             catch (SqlException e)
             {
-                Console.WriteLine("Result: " + e.Message);
+                //Console.WriteLine("Result: " + e.Message);
+                log("Result: " + e.Message);
             }
             close();
             return reader;
@@ -528,7 +616,8 @@ namespace ConsoleSQLCommander
             }
             command += "FROM " + type.Name + " WHERE " + where + " = '" + wherevalue + "'";
             SqlCommand sqlcommand = new SqlCommand(command, getConnection());
-            Console.WriteLine(command);
+            //Console.WriteLine(command);
+            log(command);
             try
             {
                 open();
@@ -537,7 +626,8 @@ namespace ConsoleSQLCommander
                 if (!reader.HasRows)
                 {
                     close();
-                    Console.WriteLine("Result: Object not found in database");
+                    //Console.WriteLine("Result: Object not found in database");
+                    log("Result: Object not found in database");
                     return new List<T>();
                 }
 
@@ -570,7 +660,8 @@ namespace ConsoleSQLCommander
             }
             catch (SqlException e)
             {
-                Console.WriteLine("Result: " + e.Message);
+                //Console.WriteLine("Result: " + e.Message);
+                log("Result: " + e.Message);
             }
             close();
 
@@ -599,7 +690,8 @@ namespace ConsoleSQLCommander
             }
             command += "FROM " + type.Name + " WHERE " + where + " LIKE '%" + wherevalue + "%'";
             SqlCommand sqlcommand = new SqlCommand(command, getConnection());
-            Console.WriteLine(command);
+            //Console.WriteLine(command);
+            log(command);
             try
             {
                 open();
@@ -608,7 +700,8 @@ namespace ConsoleSQLCommander
                 if (!reader.HasRows)
                 {
                     close();
-                    Console.WriteLine("Result: Object not found in database");
+                    //Console.WriteLine("Result: Object not found in database");
+                    log("Result: Object not found in database");
                     return new List<T>();
                 }
 
@@ -641,7 +734,8 @@ namespace ConsoleSQLCommander
             }
             catch (SqlException e)
             {
-                Console.WriteLine("Result: " + e.Message);
+                //Console.WriteLine("Result: " + e.Message);
+                log("Result: " + e.Message);
             }
             close();
 
